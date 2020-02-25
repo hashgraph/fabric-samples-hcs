@@ -7,7 +7,7 @@ in this guide have been validated on Mac OSX (Catalina) and Ubuntu 18.04 LTS.
 
 1. Toolchain: git, make, gcc, go, docker, and docker-compose. Please refer to [Prerequsites for Hyperledger Fabric v2.0](https://hyperledger-fabric.readthedocs.io/en/release-2.0/prereqs.html)
 for the complete list with detailed instructions to set up the build environment for Hyperledger Fabric.
-1. The feature/hcs branch of this [fabric-samples](https://github.com/hashgraph/fabric-samples-hcs) repository, hereafter the first-network directory inside it will be referred as FIRST_NETWORK_DIR.
+1. The feature/hcs branch of this [fabric-samples](https://github.com/hashgraph/fabric-samples-hcs) repo, hereafter the first-network directory inside it will be referred as FIRST_NETWORK_DIR.
 1. The hyperledger fabric repo with HCS orderer PoC code. Please follow the instructions below to get the source, and hereafter
 the repo directory will be referred as FABRIC_REPO_DIR.
 ```
@@ -27,7 +27,7 @@ Folllow the instructions in this section to build the required fabric binaries a
 $ cd $FABRIC_REPO_DIR
 $ make clean
 $ make configtxgen configtxlator cryptogen orderer peer docker
-$ cp build/bin/* $FIRST_NETWORK_DIR/../bin
+$ mkdir -p $FIRST_NETWORK_DIR/../bin && cp build/bin/* $FIRST_NETWORK_DIR/../bin
 ```
 
 ### Configuration
