@@ -35,13 +35,14 @@ export VERBOSE=false
 # Print the usage message
 function printHelp() {
   echo "Usage: "
-  echo "  byfn.sh <mode> [-c <channel name>] [-t <timeout>] [-d <delay>] [-f <docker-compose-file>] [-s <dbtype>] [-l <language>] [-o <consensus-type>] [-i <imagetag>] [-a] [-n] [-v]"
+  echo "  byfn.sh <mode> [-x <sys channel name>] [-c <channel name>] [-t <timeout>] [-d <delay>] [-f <docker-compose-file>] [-s <dbtype>] [-l <language>] [-o <consensus-type>] [-i <imagetag>] [-a] [-n] [-v]"
   echo "    <mode> - one of 'up', 'down', 'restart', 'generate' or 'upgrade'"
   echo "      - 'up' - bring up the network with docker-compose up"
   echo "      - 'down' - clear the network with docker-compose down"
   echo "      - 'restart' - restart the network"
   echo "      - 'generate' - generate required certificates and genesis block"
   echo "      - 'upgrade'  - upgrade the network from version 1.3.x to 1.4.0"
+  echo "    -x <sys channel name> - system channel name to use (defaults to \"byfn-sys-channel\")"
   echo "    -c <channel name> - channel name to use (defaults to \"mychannel\")"
   echo "    -t <timeout> - CLI timeout duration in seconds (defaults to 10)"
   echo "    -d <delay> - delay duration in seconds (defaults to 3)"
@@ -147,15 +148,42 @@ function checkPrereqs() {
   done
 }
 
+function generateAESKey() {
+  set -e
+  dd bs=32 count=1 if=/dev/urandom of=./aes.key
+  set +e
+}
+
+function generateChannelsForHCS() {
+  set -e
+  installHCSCli
+  TOPICS=($(hcscli topic create 2 | grep -o '[0-9]\+\.[0-9\+\.[0-9]\+'))
+  echo "generated HCS topics: ${TOPICS[@]}"
+  echo "${TOPICS[0]} will be used for the system channel, and ${TOPICS[1]} will be used for the application channel"
+  sed -e 's/SYS_HCS_TOPIC_ID/'${TOPICS[0]}'/' -e 's/APP_HCS_TOPIC_ID/'${TOPICS[1]}'/' ./configtx-template.yaml > ./configtx.yaml
+  set +e
+}
+
+function installHCSCli() {
+    set -e
+    if [ ! -e ../bin/hcscli ]; then
+        echo "installing hcscli ..."
+        GO111MODULE=on GOBIN=$PWD/../bin go get github.com/hashgraph/hcscli@v0.1.0
+    fi
+    set +e
+}
+
 # Generate the needed certificates, the genesis block and start the network.
 function networkUp() {
   checkPrereqs
+  generateAESKey
+  generateChannelsForHCS
   # generate artifacts if they don't exist
   if [ ! -d "crypto-config" ]; then
     generateCerts
     generateChannelArtifacts
   fi
-  COMPOSE_FILES="-f ${COMPOSE_FILE} -f ${COMPOSE_FILE_RAFT2}"
+  COMPOSE_FILES="-f ${COMPOSE_FILE} -f ${COMPOSE_FILE_HCS}"
   if [ "${CERTIFICATE_AUTHORITIES}" == "true" ]; then
     COMPOSE_FILES="${COMPOSE_FILES} -f ${COMPOSE_FILE_CA}"
     export BYFN_CA1_PRIVATE_KEY=$(cd crypto-config/peerOrganizations/org1.example.com/ca && ls *_sk)
@@ -171,8 +199,8 @@ function networkUp() {
     exit 1
   fi
 
-  echo "Sleeping 15s to allow Raft cluster to complete booting"
-  sleep 15
+  echo "Sleeping 5s to allow all components to complete booting"
+  sleep 5
 
   if [ "${NO_CHAINCODE}" != "true" ]; then
     echo Vendoring Go dependencies ...
@@ -260,7 +288,7 @@ function upgradeNetwork() {
 # Tear down running network
 function networkDown() {
   # stop org3 containers also in addition to org1 and org2, in case we were running sample to add org3
-  docker-compose -f $COMPOSE_FILE -f $COMPOSE_FILE_COUCH -f $COMPOSE_FILE_RAFT2 -f $COMPOSE_FILE_CA -f $COMPOSE_FILE_ORG3 down --volumes --remove-orphans
+  docker-compose -f $COMPOSE_FILE -f $COMPOSE_FILE_COUCH -f $COMPOSE_FILE_HCS -f $COMPOSE_FILE_CA -f $COMPOSE_FILE_ORG3 down --volumes --remove-orphans
 
   # Don't remove the generated artifacts -- note, the ledgers are always removed
   if [ "$MODE" != "restart" ]; then
@@ -273,6 +301,10 @@ function networkDown() {
     removeUnwantedImages
     # remove orderer block and other channel configuration transactions and certs
     rm -rf channel-artifacts/*.block channel-artifacts/*.tx crypto-config ./org3-artifacts/crypto-config/ channel-artifacts/org3.json
+    # remove configtx.yaml
+    rm -f configtx.yaml
+    # remove aes.key
+    rm -f aes.key
   fi
 }
 
@@ -371,7 +403,7 @@ function generateChannelArtifacts() {
   echo "##########################################################"
   # Note: For some unknown reason (at least for now) the block file can't be
   # named orderer.genesis.block or the orderer will fail to launch!
-  configtxgen -profile SampleMultiNodeEtcdRaft -channelID byfn-sys-channel -outputBlock ./channel-artifacts/genesis.block
+  configtxgen -profile SampleMultiNodeEtcdRaft -channelID $SYS_CHANNEL_NAME -outputBlock ./channel-artifacts/genesis.block
   res=$?
   if [ $res -ne 0 ]; then
     echo "Failed to generate orderer genesis block..."
@@ -382,7 +414,11 @@ function generateChannelArtifacts() {
   echo "### Generating channel configuration transaction 'channel.tx' ###"
   echo "#################################################################"
   set -x
-  configtxgen -profile TwoOrgsChannel -outputCreateChannelTx ./channel-artifacts/channel.tx -channelID $CHANNEL_NAME
+  # for HCS, since we need the HCS topic ID in the genesis block / channel creation transaction and
+  # the topic ID is different for different channels, we have to use the -channelCreateTxBaseProfile
+  # pointing to the profile associated with the genesis block so as to have the topic ID change
+  # captured in the output create channel tx
+  configtxgen -channelCreateTxBaseProfile SampleMultiNodeEtcdRaft -profile TwoOrgsChannel -outputCreateChannelTx ./channel-artifacts/channel.tx -channelID $CHANNEL_NAME
   res=$?
   set +x
   if [ $res -ne 0 ]; then
@@ -419,6 +455,8 @@ function generateChannelArtifacts() {
   echo
 }
 
+# system channel name
+SYS_CHANNEL_NAME="byfn-sys-channel"
 # timeout duration - the duration the CLI should wait for a response from
 # another container before giving up
 CLI_TIMEOUT=10
@@ -436,6 +474,8 @@ COMPOSE_FILE_ORG3=docker-compose-org3.yaml
 COMPOSE_FILE_RAFT2=docker-compose-etcdraft2.yaml
 # certificate authorities compose file
 COMPOSE_FILE_CA=docker-compose-ca.yaml
+# additional orderes for hcs
+COMPOSE_FILE_HCS=docker-compose-hcs.yaml
 #
 # use go as the default language for chaincode
 CC_SRC_LANGUAGE=go
@@ -463,11 +503,14 @@ else
   exit 1
 fi
 
-while getopts "h?c:t:d:s:l:i:anv" opt; do
+while getopts "h?x:c:t:d:s:l:i:anv" opt; do
   case "$opt" in
   h | \?)
     printHelp
     exit 0
+    ;;
+  x)
+    SYS_CHANNEL_NAME=$OPTARG
     ;;
   c)
     CHANNEL_NAME=$OPTARG

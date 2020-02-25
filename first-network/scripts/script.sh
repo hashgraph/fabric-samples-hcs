@@ -48,16 +48,22 @@ echo "Channel name : "$CHANNEL_NAME
 . scripts/utils.sh
 
 createChannel() {
+	# get required signatures from OrdererOrg, Org2. Org1's signature will be added when the transaction is sent to its peer
+	echo "Signing the channel create transaction..."
+	setOrdererGlobals
+	peer channel signconfigtx -f ./channel-artifacts/channel.tx
+	setGlobals 0 2
+	peer channel signconfigtx -f ./channel-artifacts/channel.tx
 	setGlobals 0 1
 
 	if [ -z "$CORE_PEER_TLS_ENABLED" -o "$CORE_PEER_TLS_ENABLED" = "false" ]; then
                 set -x
-		peer channel create -o orderer.example.com:7050 -c $CHANNEL_NAME -f ./channel-artifacts/channel.tx >&log.txt
+		peer channel create -o orderer.example.com:7050 -c $CHANNEL_NAME -f ./channel-artifacts/channel.tx -t 30s >&log.txt
 		res=$?
                 set +x
 	else
 				set -x
-		peer channel create -o orderer.example.com:7050 -c $CHANNEL_NAME -f ./channel-artifacts/channel.tx --tls $CORE_PEER_TLS_ENABLED --cafile $ORDERER_CA >&log.txt
+		peer channel create -o orderer.example.com:7050 -c $CHANNEL_NAME -f ./channel-artifacts/channel.tx --tls $CORE_PEER_TLS_ENABLED --cafile $ORDERER_CA -t 30s >&log.txt
 		res=$?
 				set +x
 	fi
@@ -86,11 +92,13 @@ createChannel
 echo "Having all peers join the channel..."
 joinChannel
 
+# when channel create tx is generated as a diff over the base profile, anchor peer configs
+# are alreay added, so we skip the next two steps
 ## Set the anchor peers for each org in the channel
-echo "Updating anchor peers for org1..."
-updateAnchorPeers 0 1
-echo "Updating anchor peers for org2..."
-updateAnchorPeers 0 2
+# echo "Updating anchor peers for org1..."
+# updateAnchorPeers 0 1
+# echo "Updating anchor peers for org2..."
+# updateAnchorPeers 0 2
 
 if [ "${NO_CHAINCODE}" != "true" ]; then
 
