@@ -10,18 +10,18 @@ for the complete list with detailed instructions to set up the build environment
 1. The feature/hcs branch of this [fabric-samples](https://github.com/hashgraph/fabric-samples-hcs) repo, hereafter the first-network directory inside it will be referred as FIRST_NETWORK_DIR.
 1. The hyperledger fabric repo with HCS orderer PoC code. Please follow the instructions below to get the source, and hereafter
 the repo directory will be referred as FABRIC_REPO_DIR.
-```
-$ mkdir -p $GOPATH/src/github.com/hyperledger && cd $GOPATH/src/github.com/hyperledger
-$ git clone https://github.com/hashgraph/fabric-hcs.git fabric
-$ cd fabric
-$ git checkout feature/hcs
-```
+   ```
+   $ mkdir -p $GOPATH/src/github.com/hyperledger && cd $GOPATH/src/github.com/hyperledger
+   $ git clone https://github.com/hashgraph/fabric-hcs.git fabric
+   $ cd fabric
+   $ git checkout feature/hcs
+   ```
 1. A hedera testnet account. Please go to [Hedera Portal](https://portal.hedera.com) to register an account if you don't have one.
 Please note down your account id and private key.
 
 ### Build Fabric Binaries and Docker Images
 
-Folllow the instructions in this section to build the required fabric binaries and docker images.
+Follow the instructions in this section to build the required fabric binaries and docker images.
 
 ```
 $ cd $FABRIC_REPO_DIR
