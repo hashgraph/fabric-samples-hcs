@@ -1,5 +1,5 @@
 {
-    "name": "fabcar",
+    "name": "@hashgraph/fabcar",
     "version": "1.0.0",
     "description": "FabCar contract implemented in JavaScript",
     "main": "index.js",
