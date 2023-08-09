@@ -1,5 +1,5 @@
 {
-	"name": "@hashgraph/abstore",
+	"name": "abstore",
 	"version": "1.0.0",
 	"description": "ABstore chaincode implemented in node.js",
 	"engines": {

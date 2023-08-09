@@ -1,5 +1,5 @@
 {
-    "name": "@hashgraph/offchaindata",
+    "name": "offchaindata",
     "version": "1.0.0",
     "description": "Offchain Data application implemented in JavaScript",
     "engines": {

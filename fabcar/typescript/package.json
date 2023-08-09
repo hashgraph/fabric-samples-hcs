@@ -1,5 +1,5 @@
 {
-    "name": "@hashgraph/fabcar",
+    "name": "fabcar",
     "version": "1.0.0",
     "description": "FabCar application implemented in TypeScript",
     "engines": {
