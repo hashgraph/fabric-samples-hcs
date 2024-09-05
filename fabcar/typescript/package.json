@@ -19,7 +19,7 @@
     "license": "Apache-2.0",
     "dependencies": {
         "fabric-ca-client": "beta",
-        "fabric-network": "beta"
+        "fabric-network": "2.2.20"
     },
     "devDependencies": {
         "@types/chai": "^4.1.7",
